@@ -1,0 +1,34 @@
+version: 2
+
+unit_tests:
+  - name: duplicate_active_customer_does_not_inflate_revenue
+    description: A duplicated active SCD version must not multiply order rows or revenue.
+    model: fct_daily_revenue
+    given:
+      - input: ref('stg_orders')
+        rows:
+          - {order_id: 1, customer_id: C0001, amount_usd: 100.0, currency: USD, status: completed, order_date: '2026-08-01'}
+          - {order_id: 2, customer_id: C0001, amount_usd: 70.0, currency: USD, status: completed, order_date: '2026-08-01'}
+          - {order_id: 3, customer_id: C0002, amount_usd: 999.0, currency: USD, status: refunded, order_date: '2026-08-01'}
+      - input: ref('stg_customers')
+        rows:
+          - {customer_id: C0001, is_active: true, valid_from: '2026-01-01'}
+          - {customer_id: C0001, is_active: true, valid_from: '2026-07-01'}
+    expect:
+      rows:
+        - {order_date: '2026-08-01', completed_order_rows: 2, daily_revenue: 170.0}
+
+  - name: non_completed_orders_are_excluded
+    description: Only completed order statuses contribute to the CEO revenue metric.
+    model: fct_daily_revenue
+    given:
+      - input: ref('stg_orders')
+        rows:
+          - {order_id: 1, customer_id: C0001, amount_usd: 100.0, currency: USD, status: completed, order_date: '2026-08-01'}
+          - {order_id: 2, customer_id: C0001, amount_usd: 70.0, currency: USD, status: refunded, order_date: '2026-08-01'}
+      - input: ref('stg_customers')
+        rows:
+          - {customer_id: C0001, is_active: true, valid_from: '2026-01-01'}
+    expect:
+      rows:
+        - {order_date: '2026-08-01', completed_order_rows: 1, daily_revenue: 100.0}

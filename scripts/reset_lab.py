@@ -59,6 +59,9 @@ def main() -> None:
     metrics = ROOT / "reports" / "latest_metrics.json"
     if metrics.exists():
         metrics.unlink()
+    quarantine = ROOT / "data" / "quarantine" / "orders.csv"
+    if quarantine.exists():
+        quarantine.unlink()
     print("Lab reset to a healthy baseline.")
 
 

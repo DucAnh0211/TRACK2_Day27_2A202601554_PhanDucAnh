@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
@@ -35,17 +36,48 @@ def evaluate_multiwindow_burn(
     *,
     short_window_burn: float,
     long_window_burn: float,
-    policy: str = "starter",
+    policy: str = "standard",
 ) -> dict[str, Any]:
-    """TODO(student): implement a real multi-window burn-rate policy.
+    """Evaluate paired burn windows and suppress isolated transient spikes.
 
-    Starter intentionally never pages. Hidden evaluation contains cases that
-    require distinguishing sustained fast burn from a transient spike.
+    Both windows must exceed a threshold. This implements the key SRE property
+    of multi-window alerting: a fast short-window burn alone is insufficient to
+    page when the longer window shows that the event was transient.
     """
+    short = float(short_window_burn)
+    long = float(long_window_burn)
+    if not math.isfinite(short) or not math.isfinite(long) or short < 0 or long < 0:
+        raise ValueError("burn rates must be finite and non-negative")
+
+    # A 14.4x pair represents a very fast error-budget burn. A 6x pair catches
+    # a sustained slower burn. Thresholds are intentionally explicit in output
+    # so an operator can defend why an alert fired.
+    if short >= 14.4 and long >= 14.4:
+        page = True
+        severity = "critical"
+        reason = "sustained_fast_burn: both windows are at least 14.4x"
+        threshold = 14.4
+    elif short >= 6.0 and long >= 6.0:
+        page = True
+        severity = "warning"
+        reason = "sustained_burn: both windows are at least 6x"
+        threshold = 6.0
+    elif short >= 6.0 and long < 6.0:
+        page = False
+        severity = "info"
+        reason = "transient_spike: short window is high but long window is below 6x"
+        threshold = 6.0
+    else:
+        page = False
+        severity = "info"
+        reason = "within_multiwindow_policy"
+        threshold = 6.0
     return {
-        "page": False,
-        "severity": "info",
-        "reason": "starter_policy_not_implemented",
-        "short_window_burn": short_window_burn,
-        "long_window_burn": long_window_burn,
+        "page": page,
+        "severity": severity,
+        "reason": reason,
+        "short_window_burn": short,
+        "long_window_burn": long,
+        "threshold": threshold,
+        "policy": policy,
     }

@@ -8,9 +8,15 @@ with completed_orders as (
     where status = 'completed'
 ),
 active_customers as (
-    select *
+    -- Defensive SCD handling: only one active row may participate in the join.
+    -- The singular test still alerts upstream owners when duplicates exist.
+    select customer_id
     from {{ ref('stg_customers') }}
     where is_active = true
+    qualify row_number() over (
+        partition by customer_id
+        order by valid_from desc nulls last
+    ) = 1
 )
 select
     o.order_date,

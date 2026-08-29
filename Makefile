@@ -9,7 +9,7 @@ baseline:
 	$(PYTHON) scripts/run_baseline.py
 
 tests:
-	pytest tests_public -q
+	pytest tests_public tests_student -q
 
 gx:
 	$(PYTHON) gx/validate_orders.py

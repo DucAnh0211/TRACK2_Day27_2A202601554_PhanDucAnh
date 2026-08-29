@@ -30,11 +30,8 @@ def get_downstream_assets(graph: dict[str, list[str]], start: str) -> list[str]:
 def get_column_downstream(
     column_graph: dict[str, list[str]], start_column: str
 ) -> list[str]:
-    """TODO(student): implement column-level traversal.
-
-    Starter returns only direct children, so transitive hidden cases will fail.
-    """
-    return list(column_graph.get(start_column, []))
+    """Return transitive downstream columns in BFS order, excluding start."""
+    return get_downstream_assets(column_graph, start_column)
 
 
 def extract_dbt_dataset_graph(manifest_path: str | Path) -> dict[str, list[str]]:
@@ -51,5 +48,12 @@ def extract_dbt_dataset_graph(manifest_path: str | Path) -> dict[str, list[str]]
     graph: dict[str, list[str]] = {}
     child_map = manifest.get("child_map", {})
     for parent, children in child_map.items():
-        graph[parent] = list(children)
+        # Keep dataset-level nodes and omit dbt test nodes from blast radius.
+        if not str(parent).startswith(("model.", "seed.", "source.", "snapshot.", "exposure.")):
+            continue
+        graph[parent] = [
+            str(child)
+            for child in children
+            if str(child).startswith(("model.", "seed.", "source.", "snapshot.", "exposure."))
+        ]
     return graph
